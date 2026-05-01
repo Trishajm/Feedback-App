@@ -1,65 +1,233 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import React from "react";
+import { CSSProperties } from "react";
+
+type Feedback = {
+  id: number;
+  name: string;
+  message: string;
+  createdAt: string;
+};
 
 export default function Home() {
+  const [name, setName] = useState("");
+  const [message, setMessage] = useState("");
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+ 
+const itemsPerPage = 2;
+
+  // 🔹 Fetch feedbacks
+  const fetchFeedbacks = async () => {
+    const res = await fetch("/api/feedback");
+    const data = await res.json();
+    setFeedbacks(data);
+  };
+
+  useEffect(() => {
+    fetchFeedbacks();
+  }, []);
+
+  // 🔹 Submit form
+  const handleSubmit = async (e:React.FormEvent) => {
+  e.preventDefault();
+
+  // ✅ Frontend validation
+  if (!name.trim()) {
+    setStatus("Name is required");
+    return;
+  }
+
+  if (message.length < 10 || message.length > 200) {
+    setStatus("Message must be between 10 and 200 characters");
+    return;
+  }
+
+  setLoading(true);
+  setStatus("");
+
+  const res = await fetch("/api/feedback", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, message }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    setStatus(data.error);
+  } else {
+    setStatus("✅ Feedback submitted successfully!");
+    setName("");
+    setMessage("");
+    fetchFeedbacks();
+    setCurrentPage(1);
+  }
+
+  setLoading(false);
+};
+
+const startIndex = (currentPage - 1) * itemsPerPage;
+const currentItems: Feedback[] = feedbacks.slice(startIndex, startIndex + itemsPerPage);
+
+const totalPages = Math.ceil(feedbacks.length / itemsPerPage);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div style={styles.container}>
+      <div style={styles.card}>
+        <h1 style={styles.title}>Feedback App</h1>
+
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <input
+            placeholder="Your Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={styles.input}
+          />
+
+          <textarea
+            placeholder="Your Feedback"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            style={styles.textarea}
+          />
+
+          <button type="submit" style={styles.button} disabled={loading}>
+            {loading ? "Submitting..." : "Submit"}
+          </button>
+        </form>
+
+        {/* Status */}
+        {status && (
+  <p
+    style={{
+      marginTop: "10px",
+      color: status.includes("success") ? "green" : "red",
+      fontSize: "14px",
+    }}
+  >
+    {status}
+  </p>
+)}
+        {/* Feedback List */}
+        <div style={styles.result}>
+          <h3>All Feedback</h3>
+
+          {currentItems.map((f) => (
+  <div key={f.id} style={styles.feedbackItem}>
+    <div style={{ display: "flex", justifyContent: "space-between" }}>
+      <strong>{f.name}</strong>
+      <small style={{ color: "#888" }}>
+        {new Date(f.createdAt).toLocaleTimeString()}
+      </small>
+    </div>
+    <p style={{ marginTop: "5px" }}>{f.message}</p>
+  </div>
+))}
+
+<div style={styles.pagination}>
+  <button
+    onClick={() => setCurrentPage((p) => p - 1)}
+    disabled={currentPage === 1}
+    style={styles.pageBtn}
+  >
+    Prev
+  </button>
+
+  <span style={{ margin: "0 10px" }}>
+    Page {currentPage} of {totalPages}
+  </span>
+
+  <button
+    onClick={() => setCurrentPage((p) => p + 1)}
+    disabled={currentPage === totalPages}
+    style={styles.pageBtn}
+  >
+    Next
+  </button>
+</div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
+
+const styles :{ [key: string]: CSSProperties } = {
+  container: {
+    height: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    background: "#f4f6f8",
+  },
+  card: {
+    background: "#fff",
+    padding: "35px",
+    borderRadius: "10px",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+    width: "520px",
+  },
+  title: {
+    textAlign: "center",
+    marginBottom: "10px",
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  input: {
+    padding: "10px",
+    borderRadius: "5px",
+    border: "1px solid #ccc",
+  },
+  textarea: {
+    padding: "10px",
+    borderRadius: "5px",
+    border: "1px solid #ccc",
+    minHeight: "80px",
+  },
+  button: {
+    padding: "10px",
+    background: "#0070f3",
+    color: "#fff",
+    border: "none",
+    borderRadius: "5px",
+    cursor: "pointer",
+  },
+  status: {
+    marginTop: "10px",
+    color: "green",
+  },
+  result: {
+    marginTop: "20px",
+  },
+  feedbackItem: {
+    marginTop: "10px",
+    padding: "10px",
+    background: "#f9f9f9",
+    borderRadius: "5px",
+    border: "1px solid #ddd",
+  },
+
+  pagination: {
+  marginTop: "15px",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+pageBtn: {
+  padding: "5px 10px",
+  borderRadius: "5px",
+  border: "1px solid #ccc",
+  background: "#fff",
+  cursor: "pointer",
+},
+};
